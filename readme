@@ -1,0 +1,149 @@
+const express = require('express');   // مكتبة السيرفر
+const mongoose = require('mongoose');  // مكتبة التعامل مع MongoDB
+const bcrypt = require('bcryptjs');    // مكتبة تشفير كلمات المرور
+const path = require('path');          // مكتبة التعامل مع مسارات الملفات
+
+const app = express();       // إنشاء سيرفر جديد
+app.use(express.json());     // لتفهم البيانات الجاية من الفرونت بصيغة JSON
+
+// ==========================
+// موديلات MongoDB
+// ==========================
+
+// موديل المريض
+const patientSchema = new mongoose.Schema({
+  name:        { type: String, required: true },               // اسم المريض - نص - مطلوب
+  telephone:{ type: String, required: true, unique: true }, // رقم الهاتف - نص - مطلوب - لا يتكرر
+  age:         { type: String, default: '' },                  // العمر - نص - لو مش موجود يتحفظ فاضي
+  password:    { type: String, required: true },               // كلمة المرور - نص - مطلوب
+  createdAt:   { type: Date, default: Date.now }               // تاريخ التسجيل - بيتحفظ تلقائي
+});
+const User = mongoose.model('User', patientSchema); // بيحول الـ Schema لموديل يتعامل مع الداتابيز
+
+// موديل الموعد
+const appointmentSchema = new mongoose.Schema({
+  telephone:   { type: String, required: true }, // رقم هاتف المريض - نص - مطلوب
+  patientName: { type: String, required: true }, // اسم المريض - نص - مطلوب
+  category:    { type: String, required: true }, // نوع العلاج - نص - مطلوب
+  description: { type: String, required: true }, // الملاحظات - نص - مطلوب
+  date:        { type: String, required: true }  // التاريخ والوقت - نص - مطلوب
+});
+const Complaint = mongoose.model('Complaint', appointmentSchema); // بيحول الـ Schema لموديل يتعامل مع الداتابيز
+
+// ==========================
+// الاتصال بـ MongoDB
+// ==========================
+mongoose.connect('mongodb://127.0.0.1:27017/dentalClinicDB') // بيتصل بالداتابيز على الجهاز المحلي
+  .then(() => console.log('✅ اتصلنا بـ MongoDB بنجاح'))    // لو الاتصال نجح بيطبع رسالة نجاح
+  .catch(err => console.log('❌ خطأ في الاتصال:', err));    // لو الاتصال فشل بيطبع رسالة الخطأ
+
+// ==========================
+// صفحة index.html
+// ==========================
+app.get('/', (req, res) => {                               // لما حد يفتح الصفحة الرئيسية
+  res.sendFile(path.join(__dirname, 'index.html'));        // بيبعتله ملف index.html
+});
+
+// ==========================
+// APIs
+// ==========================
+
+// تسجيل مريض جديد
+app.post('/signup', async (req, res) => {                  // لما الفرونت يبعت بيانات التسجيل
+  const { name, telephone, age, password } = req.body; // بياخد البيانات الجاية من الفرونت
+  if (!name || !telephone || !password)                 // بيتحقق لو في حقل فاضي
+    return res.json({ success: false, message: 'جميع الحقول مطلوبة' }); // بيرجع رسالة خطأ ويوقف
+  try {
+    const existing = await User.findOne({ telephone }); // بيدور على رقم الهاتف في الداتابيز
+    if (existing)                                          // لو الرقم موجود قبل كده
+      return res.json({ success: false, message: 'رقم الهاتف هذا مسجل بالفعل' }); // بيرجع رسالة خطأ ويوقف
+    const hashedPassword = await bcrypt.hash(password, 10); // بيشفر الباسورد، الـ 10 هي قوة التشفير
+    const newUser = new User({ name, telephone, age, password: hashedPassword }); // بيعمل مريض جديد
+    await newUser.save();                                  // بيحفظ المريض في الداتابيز
+    res.json({ success: true, message: 'تم إنشاء الحساب بنجاح' }); // بيرجع رسالة نجاح للفرونت
+  } catch (err) {
+    console.error(err);                                    // بيطبع الخطأ في الـ terminal
+    res.json({ success: false, message: 'حدث خطأ أثناء التسجيل' }); // بيرجع رسالة خطأ للفرونت
+  }
+});
+
+// تسجيل الدخول
+app.post('/login', async (req, res) => {                   // لما الفرونت يبعت بيانات تسجيل الدخول
+  const { telephone, password } = req.body;            // بياخد رقم الهاتف والباسورد من الفرونت
+  if (!telephone || !password)                          // بيتحقق لو في حقل فاضي
+    return res.json({ success: false, message: 'جميع الحقول مطلوبة' }); // بيرجع رسالة خطأ ويوقف
+  try {
+    const user = await User.findOne({ telephone });     // بيدور على المريض في الداتابيز برقم الهاتف
+    if (!user)                                             // لو الرقم مش موجود
+      return res.json({ success: false, message: 'رقم الهاتف أو كلمة المرور غير صحيحة' }); // بيرجع رسالة خطأ
+    const isMatch = await bcrypt.compare(password, user.password); // بيقارن الباسورد المكتوب بالمشفر في الداتابيز
+    if (!isMatch)                                          // لو الباسورد غلط
+      return res.json({ success: false, message: 'رقم الهاتف أو كلمة المرور غير صحيحة' }); // بيرجع رسالة خطأ
+    res.json({ success: true, user: { name: user.name, telephone: user.telephone, age: user.age } }); // بيرجع بيانات المريض للفرونت
+  } catch (err) {
+    console.error(err);                                    // بيطبع الخطأ في الـ terminal
+    res.json({ success: false, message: 'حدث خطأ أثناء تسجيل الدخول' }); // بيرجع رسالة خطأ للفرونت
+  }
+});
+
+// حجز موعد جديد
+app.post('/complaint', async (req, res) => {               // لما الفرونت يبعت بيانات الموعد
+  const { telephone, patientName, category, description, date } = req.body; // بياخد بيانات الموعد من الفرونت
+  if (!telephone || !category || !date)                    // بيتحقق لو في حقل مهم فاضي
+    return res.json({ success: false, message: 'البيانات غير مكتملة' }); // بيرجع رسالة خطأ ويوقف
+  try {
+    const newAppointment = new Complaint({ telephone, patientName, category, description, date }); // بيعمل موعد جديد
+    await newAppointment.save();                           // بيحفظ الموعد في الداتابيز
+    res.json({ success: true, message: 'تم حجز الموعد بنجاح' }); // بيرجع رسالة نجاح للفرونت
+  } catch (err) {
+    console.error(err);                                    // بيطبع الخطأ في الـ terminal
+    res.json({ success: false, message: 'حدث خطأ أثناء حجز الموعد' }); // بيرجع رسالة خطأ للفرونت
+  }
+});
+
+// جلب مواعيد مريض معين
+app.get('/complaints/:telephone', async (req, res) => {    // لما الفرونت يطلب مواعيد مريض معين
+  try {
+    const appointments = await Complaint.find({ telephone: req.params.telephone }).sort({ _id: -1 }); // بيجيب كل مواعيد المريض من الداتابيز مرتبة من الأحدث
+    res.json({ success: true, complaints: appointments }); // بيرجع المواعيد للفرونت
+  } catch (err) {
+    console.error(err);                                    // بيطبع الخطأ في الـ terminal
+    res.json({ success: false, complaints: [] });          // بيرجع قائمة فاضية للفرونت
+  }
+});
+
+// ==========================
+// صفحة Admin
+// ==========================
+app.get('/admin', (req, res) => {                          // لما حد يفتح صفحة الأدمن
+  res.sendFile(path.join(__dirname, 'admin.html'));        // بيبعتله ملف admin.html
+});
+
+// API: كل المرضى
+app.get('/api/users', async (req, res) => {                // لما الأدمن يطلب كل المرضى
+  try {
+    const patients = await User.find({}).sort({ createdAt: -1 }).select('-password'); // بيجيب كل المرضى مرتبين من الأحدث وبيخفي الباسورد
+    res.json(patients);                                    // بيرجع المرضى للأدمن
+  } catch (err) {
+    res.status(500).json({ error: 'حدث خطأ' });           // بيرجع رسالة خطأ لو في مشكلة
+  }
+});
+
+// API: كل المواعيد
+app.get('/api/complaints', async (req, res) => {           // لما الأدمن يطلب كل المواعيد
+  try {
+    const appointments = await Complaint.find({}).sort({ _id: -1 }); // بيجيب كل المواعيد مرتبة من الأحدث
+    res.json(appointments);                                // بيرجع المواعيد للأدمن
+  } catch (err) {
+    res.status(500).json({ error: 'حدث خطأ' });           // بيرجع رسالة خطأ لو في مشكلة
+  }
+});
+
+// ==========================
+// تشغيل السيرفر
+// ==========================
+const PORT = 3000;       // رقم البورت اللي السيرفر هيشتغل عليه
+app.listen(PORT, () => { // بيشغل السيرفر على البورت 3000
+  console.log(`🚀 عيادة الابتسامة - السيرفر شغال على http://localhost:${PORT}`);
+  console.log(`🔧 لوحة الإدارة: http://localhost:${PORT}/admin`);
+});

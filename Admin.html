@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة إدارة عيادة الابتسامة</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Admin.css">
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🦷</span>
+    <h2>عيادة الابتسامة</h2>
+    <p>لوحة الإدارة</p>
+  </div>
+  <div class="nav-item active" onclick="showSection('dashboard')">
+    <span class="nav-icon">📊</span> الرئيسية
+  </div>
+  <div class="nav-item" onclick="showSection('patients')">
+    <span class="nav-icon">👥</span> المرضى
+  </div>
+  <div class="nav-item" onclick="showSection('appointments')">
+    <span class="nav-icon">📅</span> المواعيد
+  </div>
+</div>
+
+<div class="main">
+  <div class="top-bar">
+    <div>
+      <h1 id="pageTitle">لوحة التحكم</h1>
+      <p id="pageSubtitle">مرحباً بك في نظام إدارة عيادة الابتسامة</p>
+    </div>
+    <button class="refresh-btn" onclick="loadData()">🔄 تحديث</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <span class="stat-icon">👥</span>
+      <div class="stat-num" id="statPatients">—</div>
+      <div class="stat-label">إجمالي المرضى</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">📅</span>
+      <div class="stat-num" id="statAppointments">—</div>
+      <div class="stat-label">إجمالي المواعيد</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">🦷</span>
+      <div class="stat-num" id="statToday">—</div>
+      <div class="stat-label">مواعيد اليوم</div>
+    </div>
+  </div>
+
+  <div id="dashboardSection" class="section active">
+    <div class="dashboard-grid">
+      <div class="dash-card">
+        <div class="dash-card-header">👥 آخر المرضى المسجلين</div>
+        <div class="dash-card-body" id="recentPatients">
+          <div class="loading"><div class="spinner"></div><br>جاري التحميل...</div>
+        </div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-header">📅 آخر المواعيد المحجوزة</div>
+        <div class="dash-card-body" id="recentAppointments">
+          <div class="loading"><div class="spinner"></div><br>جاري التحميل...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="patientsSection" class="section">
+    <div class="section-header">
+      <h2>قائمة المرضى</h2>
+      <input class="search-bar" id="patientSearch" placeholder="🔍 بحث بالاسم أو رقم الهاتف..." oninput="filterPatients()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>الاسم</th>
+            <th>رقم الهاتف</th>
+            <th>العمر</th>
+            <th>تاريخ التسجيل</th>
+          </tr>
+        </thead>
+        <tbody id="patientsBody">
+          <tr><td colspan="5" class="loading"><div class="spinner"></div><br>جاري التحميل...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="appointmentsSection" class="section">
+    <div class="section-header">
+      <h2>قائمة المواعيد</h2>
+      <input class="search-bar" id="appointmentSearch" placeholder="🔍 بحث بالاسم أو نوع العلاج..." oninput="filterAppointments()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>اسم المريض</th>
+            <th>رقم الهاتف</th>
+            <th>نوع العلاج</th>
+            <th>التاريخ والوقت</th>
+            <th>الملاحظات</th>
+          </tr>
+        </thead>
+        <tbody id="appointmentsBody">
+          <tr><td colspan="6" class="loading"><div class="spinner"></div><br>جاري التحميل...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let allPatients     = [];
+let allAppointments = [];
+
+const sectionTitles = {
+  dashboard:    ['لوحة التحكم',  'نظرة عامة على عيادة الابتسامة'],
+  patients:     ['المرضى',       'قائمة جميع المرضى المسجلين'],
+  appointments: ['المواعيد',     'جميع المواعيد المحجوزة'],
+};
+
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(name + 'Section').classList.add('active');
+  event.currentTarget.classList.add('active');
+  document.getElementById('pageTitle').textContent    = sectionTitles[name][0];
+  document.getElementById('pageSubtitle').textContent = sectionTitles[name][1];
+}
+
+async function loadData() {
+  try {
+    const pRes = await fetch('/api/users');
+    allPatients = await pRes.json();
+
+    const aRes = await fetch('/api/complaints');
+    allAppointments = await aRes.json();
+
+    document.getElementById('statPatients').textContent     = allPatients.length;
+    document.getElementById('statAppointments').textContent = allAppointments.length;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayCount = allAppointments.filter(a => a.date && a.date.startsWith(todayStr)).length;
+    document.getElementById('statToday').textContent = todayCount;
+
+    renderPatients(allPatients);
+    renderAppointments(allAppointments);
+    renderDashboard();
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('patientsBody').innerHTML     = '<tr class="empty-row"><td colspan="5">❌ خطأ في تحميل البيانات</td></tr>';
+    document.getElementById('appointmentsBody').innerHTML = '<tr class="empty-row"><td colspan="6">❌ خطأ في تحميل البيانات</td></tr>';
+  }
+}
+
+function renderPatients(data) {
+  const tbody = document.getElementById('patientsBody');
+  if(!data.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">لا يوجد مرضى مسجلون بعد</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map((p, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.telephone}</td>
+      <td>${p.age || '—'}</td>
+      <td>${new Date(p.createdAt).toLocaleDateString('ar-EG')}</td>
+    </tr>
+  `).join('');
+}
+
+function renderAppointments(data) {
+  const tbody = document.getElementById('appointmentsBody');
+  if(!data.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">لا توجد مواعيد محجوزة بعد</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map((a, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${a.patientName}</strong></td>
+      <td>${a.telephone}</td>
+      <td><span class="badge">${a.category}</span></td>
+      <td>${a.date}</td>
+      <td>${a.description !== 'لا توجد ملاحظات' ? a.description : '<span style="color:var(--muted)">—</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+function renderDashboard() {
+  const rp = document.getElementById('recentPatients');
+  if(!allPatients.length) {
+    rp.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">لا يوجد مرضى بعد</p>';
+  } else {
+    rp.innerHTML = allPatients.slice(0,5).map(p => `
+      <div class="recent-item">
+        <div>
+          <div class="name">${p.name}</div>
+          <div class="meta">${p.telephone}</div>
+        </div>
+        <div class="meta">${new Date(p.createdAt).toLocaleDateString('ar-EG')}</div>
+      </div>
+    `).join('');
+  }
+
+  const ra = document.getElementById('recentAppointments');
+  if(!allAppointments.length) {
+    ra.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">لا توجد مواعيد بعد</p>';
+  } else {
+    ra.innerHTML = allAppointments.slice(0,5).map(a => `
+      <div class="recent-item">
+        <div>
+          <div class="name">${a.patientName}</div>
+          <div class="meta">${a.category}</div>
+        </div>
+        <div class="meta">${a.date}</div>
+      </div>
+    `).join('');
+  }
+}
+
+function filterPatients() {
+  const q = document.getElementById('patientSearch').value.toLowerCase();
+  renderPatients(allPatients.filter(p =>
+    p.name.toLowerCase().includes(q) || p.telephone.includes(q)
+  ));
+}
+
+function filterAppointments() {
+  const q = document.getElementById('appointmentSearch').value.toLowerCase();
+  renderAppointments(allAppointments.filter(a =>
+    a.patientName.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)
+  ));
+}
+
+window.onload = loadData;
+</script>
+</body>
+</html>

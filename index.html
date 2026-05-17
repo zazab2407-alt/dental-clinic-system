@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عيادة الابتسامة - حجز مواعيد</title>
+<link rel="stylesheet" href="index.css">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <span class="logo">🦷</span>
+    <h1>عيادة الابتسامة</h1>
+    <p>احجز موعدك بكل سهولة وراحة</p>
+  </div>
+  <div class="content">
+
+    <div id="loginPage">
+      <h2>تسجيل الدخول</h2>
+      <div id="loginMsg" class="message"></div>
+      <div class="form-group">
+        <label>رقم الهاتف</label>
+        <input type="text" id="loginId" placeholder="أدخل رقم هاتفك">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" id="loginPass" placeholder="أدخل كلمة المرور">
+      </div>
+      <button class="btn" onclick="login()">تسجيل الدخول</button>
+      <div class="switch">
+        مريض جديد؟ <a onclick="showPage('signup')">إنشاء حساب</a>
+      </div>
+    </div>
+
+    <div id="signupPage" class="hidden">
+      <h2>تسجيل مريض جديد</h2>
+      <div id="signupMsg" class="message"></div>
+      <div class="form-group">
+        <label>الاسم الكامل</label>
+        <input type="text" id="signupName" placeholder="أدخل اسمك الكامل">
+      </div>
+      <div class="form-group">
+        <label>رقم الهاتف</label>
+        <input type="text" id="signupId" placeholder="مثال: 01012345678">
+      </div>
+      <div class="form-group">
+        <label>العمر</label>
+        <input type="number" id="signupAge" placeholder="أدخل عمرك">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" id="signupPass" placeholder="6 أحرف على الأقل">
+      </div>
+      <button class="btn" onclick="signup()">إنشاء الحساب</button>
+      <div class="switch">
+        لديك حساب؟ <a onclick="showPage('login')">تسجيل الدخول</a>
+      </div>
+    </div>
+
+    <div id="appointmentPage" class="hidden">
+      <div class="patient-info">
+        <h3 id="patientName"></h3>
+        <p>📞 <strong id="patientId"></strong></p>
+      </div>
+      <h2>حجز موعد جديد</h2>
+      <div id="appointmentMsg" class="message"></div>
+      <div class="form-group">
+        <label>نوع العلاج</label>
+        <select id="treatmentType">
+          <option value="تنظيف وتلميع الأسنان">🪥 تنظيف وتلميع الأسنان</option>
+          <option value="حشو الأسنان">🦷 حشو الأسنان</option>
+          <option value="خلع الأسنان">🔧 خلع الأسنان</option>
+          <option value="تقويم الأسنان">📐 تقويم الأسنان</option>
+          <option value="علاج عصب">💉 علاج عصب</option>
+          <option value="تركيب طقم أسنان">😁 تركيب طقم أسنان</option>
+          <option value="تبييض الأسنان">✨ تبييض الأسنان</option>
+          <option value="كشف واستشارة">🩺 كشف واستشارة</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>تاريخ الموعد</label>
+        <input type="date" id="appointmentDate">
+      </div>
+      <div class="form-group">
+        <label>وقت الموعد</label>
+        <select id="appointmentTime">
+          <option value="09:00 ص">09:00 ص</option>
+          <option value="10:00 ص">10:00 ص</option>
+          <option value="11:00 ص">11:00 ص</option>
+          <option value="12:00 م">12:00 م</option>
+          <option value="01:00 م">01:00 م</option>
+          <option value="03:00 م">03:00 م</option>
+          <option value="04:00 م">04:00 م</option>
+          <option value="05:00 م">05:00 م</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ملاحظات إضافية (اختياري)</label>
+        <textarea id="appointmentNotes" placeholder="صف مشكلتك أو أي تفاصيل مهمة..."></textarea>
+      </div>
+      <button class="btn" onclick="bookAppointment()">✅ تأكيد الحجز</button>
+      <div id="appointmentsList"></div>
+      <button class="btn btn-outline" onclick="logout()">تسجيل الخروج</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let currentUser = null;
+
+function showPage(page) {
+  ['login','signup','appointment'].forEach(p => {
+    document.getElementById(p+'Page').classList.add('hidden');
+  });
+  document.getElementById(page+'Page').classList.remove('hidden');
+  if(page === 'appointment') loadAppointments();
+}
+
+function showMessage(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'message ' + type;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+window.onload = function() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('appointmentDate').min = today;
+  document.getElementById('appointmentDate').value = today;
+  showPage('login');
+};
+
+async function signup() {
+  const name  = document.getElementById('signupName').value.trim();
+  const phone = document.getElementById('signupId').value.trim();
+  const age   = document.getElementById('signupAge').value.trim();
+  const pass  = document.getElementById('signupPass').value.trim();
+  if(!name || !phone || !age || !pass) { showMessage('signupMsg','جميع الحقول مطلوبة','error'); return; }
+  if(pass.length < 6) { showMessage('signupMsg','كلمة المرور يجب أن تكون 6 أحرف على الأقل','error'); return; }
+  try {
+    const res  = await fetch('/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, telephone: phone, age, password: pass }) });
+    const data = await res.json();
+    if(data.success) {
+      showMessage('signupMsg','🎉 تم التسجيل بنجاح! يمكنك تسجيل الدخول الآن','success');
+      document.getElementById('signupName').value = '';
+      document.getElementById('signupId').value   = '';
+      document.getElementById('signupAge').value  = '';
+      document.getElementById('signupPass').value = '';
+      setTimeout(() => showPage('login'), 2000);
+    } else { showMessage('signupMsg', data.message, 'error'); }
+  } catch(e) { showMessage('signupMsg','حدث خطأ في الاتصال','error'); }
+}
+
+async function login() {
+  const phone = document.getElementById('loginId').value.trim();
+  const pass  = document.getElementById('loginPass').value.trim();
+  if(!phone || !pass) { showMessage('loginMsg','جميع الحقول مطلوبة','error'); return; }
+  try {
+    const res  = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ telephone: phone, password: pass }) });
+    const data = await res.json();
+    if(data.success) {
+      currentUser = data.user;
+      document.getElementById('patientName').textContent = currentUser.name;
+      document.getElementById('patientId').textContent  = currentUser.telephone;
+      document.getElementById('loginId').value  = '';
+      document.getElementById('loginPass').value = '';
+      showPage('appointment');
+    } else { showMessage('loginMsg', data.message, 'error'); }
+  } catch(e) { showMessage('loginMsg','حدث خطأ في الاتصال','error'); }
+}
+
+async function bookAppointment() {
+  const type  = document.getElementById('treatmentType').value;
+  const date  = document.getElementById('appointmentDate').value;
+  const time  = document.getElementById('appointmentTime').value;
+  const notes = document.getElementById('appointmentNotes').value.trim();
+  if(!date) { showMessage('appointmentMsg','يرجى اختيار تاريخ الموعد','error'); return; }
+  try {
+    const res  = await fetch('/complaint', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        telephone:   currentUser.telephone,
+        patientName: currentUser.name,
+        category:    type,
+        description: notes || 'لا توجد ملاحظات',
+        date:        `${date} - ${time}`
+      })
+    });
+    const data = await res.json();
+    if(data.success) {
+      showMessage('appointmentMsg','✅ تم حجز موعدك بنجاح!','success');
+      document.getElementById('appointmentNotes').value = '';
+      loadAppointments();
+    } else { showMessage('appointmentMsg', data.message, 'error'); }
+  } catch(e) { showMessage('appointmentMsg','حدث خطأ في الاتصال','error'); }
+}
+
+async function loadAppointments() {
+  const listDiv = document.getElementById('appointmentsList');
+  try {
+    const res  = await fetch(`/complaints/${currentUser.telephone}`);
+    const data = await res.json();
+    if(data.success && data.complaints.length > 0) {
+      let html = '<div class="section-title">📅 مواعيدك السابقة</div>';
+      data.complaints.forEach(c => {
+        html += `
+          <div class="appointment-item">
+            <h4>${c.category}</h4>
+            <p>${c.description !== 'لا توجد ملاحظات' ? c.description : ''}</p>
+            <div class="meta">
+              <span>📅 ${c.date}</span>
+              <span>👤 ${c.patientName}</span>
+            </div>
+          </div>`;
+      });
+      listDiv.innerHTML = html;
+    } else {
+      listDiv.innerHTML = '<div class="empty-state"><span class="icon">📭</span>لا توجد مواعيد محجوزة بعد</div>';
+    }
+  } catch(e) {
+    listDiv.innerHTML = '<div class="empty-state">حدث خطأ أثناء تحميل المواعيد</div>';
+  }
+}
+
+function logout() {
+  currentUser = null;
+  document.getElementById('appointmentsList').innerHTML = '';
+  showPage('login');
+}
+</script>
+</body>
+</html>
